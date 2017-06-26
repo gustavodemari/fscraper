@@ -3,6 +3,7 @@
   "main": "scraper.js",
   "dependencies": {
     "cheerio": "latest",
+    "osmosis": "^1.1.4",
     "request": "latest",
     "sqlite3": "latest"
   },

@@ -1,29 +1,31 @@
 // This is a template for a Node.js scraper on morph.io (https://morph.io)
 
-var cheerio = require("cheerio");
+const osmosis = require('osmosis');
 var request = require("request");
 var sqlite3 = require("sqlite3").verbose();
+
+const URL = new Buffer('aHR0cDovL2ZvcnVtLmxvbGVzcG9ydGUuY29tLw==', 'base64').toString('ascii')
 
 function initDatabase(callback) {
 	// Set up sqlite database.
 	var db = new sqlite3.Database("data.sqlite");
 	db.serialize(function() {
-		db.run("CREATE TABLE IF NOT EXISTS data (name TEXT)");
+		db.run("CREATE TABLE IF NOT EXISTS data (value TEXT, time TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 		callback(db);
 	});
 }
 
 function updateRow(db, value) {
 	// Insert some data.
-	var statement = db.prepare("INSERT INTO data VALUES (?)");
+	var statement = db.prepare("INSERT INTO data(value) VALUES (?)");
 	statement.run(value);
 	statement.finalize();
 }
 
 function readRows(db) {
 	// Read some data.
-	db.each("SELECT rowid AS id, name FROM data", function(err, row) {
-		console.log(row.id + ": " + row.name);
+	db.each("SELECT rowid AS id, value FROM data", function(err, row) {
+		console.log(row.id + ": " + row.value);
 	});
 }
 
@@ -40,20 +42,17 @@ function fetchPage(url, callback) {
 }
 
 function run(db) {
-	// Use request to read in pages.
-	fetchPage("https://morph.io", function (body) {
-		// Use cheerio to find things in the page with css selectors.
-		var $ = cheerio.load(body);
 
-		var elements = $("div.media-body span.p-name").each(function () {
-			var value = $(this).text().trim();
-			updateRow(db, value);
-		});
-
-		readRows(db);
-
+	osmosis
+	.get(URL)
+	.set({'forum_title': ['.forumtitle']})
+	.set({'forum_stats': ['.stats-wrapper']})
+	.data(function(data){
+		updateRow(db, JSON.stringify(data));
+	})
+	.done(function(){
 		db.close();
-	});
+	})
 }
 
 initDatabase(run);
